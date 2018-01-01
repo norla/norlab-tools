@@ -2,7 +2,8 @@
 
 const { AutoComplete } = require("enquirer");
 const spawn = require("child_process").spawn;
-const k8s = require("@kubernetes/client-node");
+const k8s = require("kubernetes-client");
+const Request = require("kubernetes-client/backends/request");
 
 const pattern = process.argv[2];
 function uniq(list) {
@@ -22,11 +23,13 @@ const ctxs = {
   aws: "default/console-prod-bonniernews-io:443/mattias.norlander",
 };
 
-const apis = Object.entries(ctxs).reduce((acc, [ctxName, ctxUrl]) => {
+const apis = Object.entries(ctxs).reduce((acc, [ctxKey, ctxName]) => {
   const conf = new k8s.KubeConfig();
   conf.loadFromDefault();
-  conf.currentContext = ctxUrl;
-  acc[ctxName] = conf.makeApiClient(k8s.CoreV1Api);
+  conf.setCurrentContext(ctxName);
+  const backend = new Request({ kubeconfig: conf });
+  const client = new k8s.Client({ backend, version: "1.13" });
+  acc[ctxKey] = client.api.v1;
   return acc;
 }, {});
 
@@ -34,10 +37,10 @@ const namespaces = {};
 async function run() {
   const results = await Promise.all(
     Object.entries(apis).map(async ([ctx, api]) => {
-      const res = await api.listNamespace();
-      if (res.response.statusCode !== 200)
+      const res = await api.namespaces.get();
+      if (res.statusCode !== 200)
         throw new Error(`Bad status code: ${res.statusCode}`);
-      return res.response.body.items.forEach((i) => {
+      return res.body.items.forEach((i) => {
         const name = `${ctx} ${i.metadata.name}`;
         namespaces[name] = { ctx, ns: i.metadata.name };
       });
@@ -54,8 +57,8 @@ async function run() {
   const selectedNsName = await prompt.run();
   const selectedNs = namespaces[selectedNsName];
   const selectedApi = apis[selectedNs.ctx];
+  const pods = await selectedApi.namespaces(selectedNs.ns).pods.get();
 
-  const pods = await selectedApi.listNamespacedPod(selectedNs.ns);
   const appLabels = pods.body.items.flatMap((item) =>
     Object.entries(item.metadata.labels).map(([k, v]) => `${k}=${v}`)
   );
@@ -77,6 +80,7 @@ async function run() {
     "--tail",
     "200",
   ];
+
   if (pattern) {
     sternOpts.push("-i");
     sternOpts.push(pattern);

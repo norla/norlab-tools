@@ -10,12 +10,14 @@
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "bin": {
-    "ocl": "./ocl.js"
+    "ocl": "./ocl.js",
+    "oca": "./oc-login.js"
   },
   "author": "Mattias Norlander <mattias.norlander@gmail.com>",
   "license": "ISC",
   "dependencies": {
-    "@kubernetes/client-node": "^0.12.0",
-    "enquirer": "^2.3.5"
+    "enquirer": "^2.3.5",
+    "kubernetes-client": "^9.0.0",
+    "prettier": "^2.0.5"
   }
 }
