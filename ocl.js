@@ -5,6 +5,8 @@ const { Client } = require("kubernetes-client");
 const spawn = require("child_process").spawn;
 const client = new Client({ version: "1.13" });
 
+const pattern = process.argv[2];
+
 function uniq(list) {
   return list.reduce((acc, d) => (acc.includes(d) ? acc : acc.concat(d)), []);
 }
@@ -32,8 +34,12 @@ async function run() {
     choices: uniq(appLabels),
   });
   const appLabel = await prompt2.run();
-
-  spawn("stern", ["-n", namespace, "-l", `app=${appLabel}`], {
+  const sternOpts = ["-n", namespace, "-l", `app=${appLabel}`, "--tail", "200"];
+  if (pattern) {
+    sternOpts.push("-i");
+    sternOpts.push(pattern);
+  }
+  spawn("stern", sternOpts, {
     stdio: "inherit",
     detached: false,
   });
