@@ -1,40 +1,82 @@
-"use strict";
+#!/usr/bin/env node
 
 const { AutoComplete } = require("enquirer");
-const { Client } = require("kubernetes-client");
 const spawn = require("child_process").spawn;
-const client = new Client({ version: "1.13" });
+const k8s = require("@kubernetes/client-node");
 
 const pattern = process.argv[2];
-
 function uniq(list) {
   return list.reduce((acc, d) => (acc.includes(d) ? acc : acc.concat(d)), []);
 }
+const defaultConf = new k8s.KubeConfig();
+defaultConf.loadFromDefault();
 
+// TODO: less assumptions about the contents of the default cube conf
+// const clusters = [
+//   { name: "elx", server: "console-elx-bonniernews-io" },
+//   { name: "aws", server: "console-prod-bonniernews-io" },
+// ];
+
+const ctxs = {
+  elx: "default/console-elx-bonniernews-io:443/mattias.norlander",
+  aws: "default/console-prod-bonniernews-io:443/mattias.norlander",
+};
+
+const apis = Object.entries(ctxs).reduce((acc, [ctxName, ctxUrl]) => {
+  const conf = new k8s.KubeConfig();
+  conf.loadFromDefault();
+  conf.currentContext = ctxUrl;
+  acc[ctxName] = conf.makeApiClient(k8s.CoreV1Api);
+  return acc;
+}, {});
+
+const namespaces = {};
 async function run() {
-  const namespaces = await client.api.v1.namespaces.get();
+  const results = await Promise.all(
+    Object.entries(apis).map(async ([ctx, api]) => {
+      const res = await api.listNamespace();
+      if (res.response.statusCode !== 200)
+        throw new Error(`Bad status code: ${res.statusCode}`);
+      return res.response.body.items.forEach((i) => {
+        const name = `${ctx} ${i.metadata.name}`;
+        namespaces[name] = { ctx, ns: i.metadata.name };
+      });
+    })
+  );
 
   const prompt = new AutoComplete({
-    name: "Namespace",
-    message: "namespace",
-    limit: 10,
+    message: "Namespace",
+    limit: 5,
     initial: 2,
-    choices: namespaces.body.items.map(({ metadata }) => metadata.name),
+    choices: Object.keys(namespaces),
   });
 
-  const namespace = await prompt.run();
-  const pods = await client.api.v1.namespaces(namespace).pods.get();
-  const appLabels = pods.body.items
-    .map((item) => item.metadata.labels.app)
-    .filter((l) => l);
+  const selectedNsName = await prompt.run();
+  const selectedNs = namespaces[selectedNsName];
+  const selectedApi = apis[selectedNs.ctx];
+
+  const pods = await selectedApi.listNamespacedPod(selectedNs.ns);
+  const appLabels = pods.body.items.flatMap((item) =>
+    Object.entries(item.metadata.labels).map(([k, v]) => `${k}=${v}`)
+  );
 
   const prompt2 = new AutoComplete({
-    name: "Namespace",
     message: "label",
     choices: uniq(appLabels),
   });
+
   const appLabel = await prompt2.run();
-  const sternOpts = ["-n", namespace, "-l", `app=${appLabel}`, "--tail", "200"];
+
+  const sternOpts = [
+    "-n",
+    selectedNs.ns,
+    "-l",
+    appLabel,
+    "--context",
+    ctxs[selectedNs.ctx],
+    "--tail",
+    "200",
+  ];
   if (pattern) {
     sternOpts.push("-i");
     sternOpts.push(pattern);
@@ -43,5 +85,7 @@ async function run() {
     stdio: "inherit",
     detached: false,
   });
+  // TODO: use
 }
+
 run();

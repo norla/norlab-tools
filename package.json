@@ -1,0 +1,21 @@
+{
+  "name": "norlab-tools",
+  "version": "1.0.0",
+  "description": "",
+  "main": "ocl.js",
+  "engines": {
+    "node": ">=12"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "bin": {
+    "ocl": "./ocl.js"
+  },
+  "author": "Mattias Norlander <mattias.norlander@gmail.com>",
+  "license": "ISC",
+  "dependencies": {
+    "@kubernetes/client-node": "^0.12.0",
+    "enquirer": "^2.3.5"
+  }
+}
