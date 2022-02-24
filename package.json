@@ -1,5 +1,5 @@
 {
-  "name": "norlab-tools",
+  "name": "exp-oc-tools",
   "version": "1.0.0",
   "description": "",
   "main": "ocl.js",
@@ -10,14 +10,17 @@
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "bin": {
-    "ocl": "./ocl.js",
+    "ocl": "./oc-logs.js",
     "oca": "./oc-login.js"
   },
   "author": "Mattias Norlander <mattias.norlander@gmail.com>",
   "license": "ISC",
   "dependencies": {
-    "enquirer": "^2.3.5",
+    "enquirer": "^2.3.6",
     "kubernetes-client": "^9.0.0",
-    "prettier": "^2.0.5"
+    "ws": "^8.5.0"
+  },
+  "devDependencies": {
+    "prettier": "^2.5.1"
   }
 }

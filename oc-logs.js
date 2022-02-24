@@ -12,24 +12,15 @@ function uniq(list) {
 const defaultConf = new k8s.KubeConfig();
 defaultConf.loadFromDefault();
 
-// TODO: less assumptions about the contents of the default cube conf
-// const clusters = [
-//   { name: "elx", server: "console-elx-bonniernews-io" },
-//   { name: "aws", server: "console-prod-bonniernews-io" },
-// ];
+const ctxs = process.env["OC_TOOLS_CTXS"].split(";")
 
-const ctxs = {
-  elx: "default/console-elx-bonniernews-io:443/mattias.norlander",
-  aws: "default/console-prod-bonniernews-io:443/mattias.norlander",
-};
-
-const apis = Object.entries(ctxs).reduce((acc, [ctxKey, ctxName]) => {
+const apis = ctxs.reduce((acc, ctx) => {
   const conf = new k8s.KubeConfig();
   conf.loadFromDefault();
-  conf.setCurrentContext(ctxName);
+  conf.setCurrentContext(ctx);
   const backend = new Request({ kubeconfig: conf });
   const client = new k8s.Client({ backend, version: "1.13" });
-  acc[ctxKey] = client.api.v1;
+  acc[ctx] = client.api.v1;
   return acc;
 }, {});
 
@@ -69,14 +60,14 @@ async function run() {
   });
 
   const appLabel = await prompt2.run();
-
+  console.log(selectedNs);
   const sternOpts = [
     "-n",
     selectedNs.ns,
     "-l",
     appLabel,
     "--context",
-    ctxs[selectedNs.ctx],
+    selectedNs.ctx,
     "--tail",
     "200",
   ];
@@ -89,7 +80,6 @@ async function run() {
     stdio: "inherit",
     detached: false,
   });
-  // TODO: use
 }
 
 run();

@@ -11,16 +11,13 @@ function uniq(list) {
 const conf = new k8s.KubeConfig();
 conf.loadFromDefault();
 
-const ctxs = {
-  elx: "default/console-elx-bonniernews-io:443/mattias.norlander",
-  aws: "default/console-prod-bonniernews-io:443/mattias.norlander",
-};
+const ctxs = process.env["OC_TOOLS_CTXS"].split(";")
 
-const apis = Object.entries(ctxs).reduce((acc, [ctxKey, ctxName]) => {
-  conf.setCurrentContext(ctxName);
+const apis = ctxs.reduce((acc, ctx) => {
+  conf.setCurrentContext(ctx);
   const backend = new Request({ kubeconfig: conf });
   const client = new k8s.Client({ backend, version: "1.13" });
-  acc[ctxKey] = client.api.v1;
+  acc[ctx] = client.api.v1;
   return acc;
 }, {});
 
@@ -46,32 +43,29 @@ async function readPass() {
 }
 
 async function run() {
-  let loginNeeded = Object.keys(ctxs);
-  // for (ctx in ctxs) {
-  //   console.log("- - - DEBUG api", ctxs[ctx]);
-  //   try {
-  //     conf.setCurrentContext(ctxs[ctx]);
-  //     const ns = await apis[ctx].namespace("default").get();
-  //     // console.log("- - - DEBUG ns", ns);
-  //   } catch (err) {
-  //     if (err.code !== 401) throw(err);
-  //     loginNeeded.push(ctx);
-  //     console.log("- - - DEBUG err", JSON.stringify(err, null, 2));
-  //   }
-  // }
+  let loginNeeded = [];
+  for (ctx of ctxs) {
+    try {
+      conf.setCurrentContext(ctx);
+      const ns = await apis[ctx].namespace("default").get();
+    } catch (err) {
+      if (err.code > 499) throw(err);
+      loginNeeded.push(ctx);
+    }
+  }
 
   if (loginNeeded.length > 0) {
-     console.log(`Login needed for ${ctxs[loginNeeded]}`);
+     console.log(`Login needed for ${loginNeeded}`);
     const pass = await readPass();
-    for (ctx in ctxs) {
-      const [_ns, host, user] = ctxs[ctx].split("/");
+    for (ctx of ctxs) {
+      const [_ns, host, user] = ctx.split("/");
       const host2 = host.replace(/-/g, ".");
       exec("oc", ["login", `https://${host2}`, "-u", user, "-p", pass],{stdio: "inherit"}, (err) => {
         if (err) throw (err);
       });
     }
 } else {
-  console.log("Already logged in to ", Object.values(ctxs));
+  console.log(`Logged in to:\n${ctxs.map(c=> " - " + c).join("\n")}`);
 }
 }
 run();
