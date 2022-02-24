@@ -12,7 +12,7 @@ function uniq(list) {
 const defaultConf = new k8s.KubeConfig();
 defaultConf.loadFromDefault();
 
-const ctxs = process.env["OC_TOOLS_CTXS"].split(";")
+const ctxs = process.env["EXP_OC_TOOLS_CTXS"].split(";")
 
 const apis = ctxs.reduce((acc, ctx) => {
   const conf = new k8s.KubeConfig();
