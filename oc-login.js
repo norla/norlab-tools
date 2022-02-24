@@ -11,7 +11,7 @@ function uniq(list) {
 const conf = new k8s.KubeConfig();
 conf.loadFromDefault();
 
-const ctxs = process.env["OC_TOOLS_CTXS"].split(";")
+const ctxs = process.env["EXP_OC_TOOLS_CTXS"].split(";")
 
 const apis = ctxs.reduce((acc, ctx) => {
   conf.setCurrentContext(ctx);
